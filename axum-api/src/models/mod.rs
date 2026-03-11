@@ -2,6 +2,7 @@ pub(crate) mod answer;
 pub(crate) mod question;
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Serialize, Deserialize)]
 pub struct Question {
@@ -38,7 +39,7 @@ pub struct AnswerDetail {
 
 #[derive(Serialize, Deserialize)]
 pub struct AnswerId {
-    answer_uuid: String,
+    pub answer_uuid: String,
 }
 
 #[derive(Error, Debug)]

@@ -6,30 +6,51 @@ use axum::{
 };
 use log::info;
 
+use dotenv::dotenv;
+use sqlx::Executor;
+use sqlx::postgres::PgPoolOptions;
+use std::env;
+use std::sync::Arc;
+
 mod handlers;
 mod models;
+mod persistance;
 
+use crate::persistance::answers_dao::{AnswersDao, AnswersDaoImpl};
+use crate::persistance::questions_dao::{QuestionsDao, QuestionsDaoImpl};
 use handlers::*;
+
+#[derive(Clone)]
+struct AppState {
+    questions_dao: Arc<dyn QuestionsDao + Send + Sync>,
+    answers_dao: Arc<dyn AnswersDao + Send + Sync>,
+}
 
 #[tokio::main]
 async fn main() {
-    // TODO: Initialize pretty_env_logger
-    // TODO: Initialize dotenv
+    pretty_env_logger::init();
+    dotenv().ok();
 
-    // Create a new PgPoolOptions instance with a maximum of 5 connections.
-    // Use dotenv to get the database url.
-    // Use the `unwrap` or `expect` method instead of handling errors. If an
-    // error occurs at this stage the server should be terminated.
-    // See examples on GitHub page: https://github.com/launchbadge/sqlx
-    // let pool = todo!();
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&env::var("DATABASE_URL").expect("DATABASE_URL not set"))
+        .await
+        .expect("DATABASE_URL not set");
 
-    // Using slqx, execute a SQL query that selects all questions from the questions table.
-    // Use the `unwrap` or `expect` method to handle errors. This is just some test code to
-    // make sure we can connect to the database.
-    // let recs = todo!();
+    let recs = pool
+        .fetch_all(sqlx::query("SELECT * from questions"))
+        .await
+        .expect("Query failed");
+    let questions_dao = QuestionsDaoImpl::new(pool.clone());
+    let answers_dao = AnswersDaoImpl::new(pool.clone());
+
+    let app_state = AppState {
+        questions_dao: Arc::new(questions_dao),
+        answers_dao: Arc::new(answers_dao),
+    };
 
     info!("********* Question Records *********");
-    // TODO: Log recs with debug formatting using the info! macro
+    info!("{:#?}", recs);
 
     let app = Router::new()
         .route("/question", post(create_question))
@@ -37,7 +58,8 @@ async fn main() {
         .route("/question", delete(delete_question))
         .route("/answer", post(create_answer))
         .route("/answers", get(read_answers))
-        .route("/answer", delete(delete_answer));
+        .route("/answer", delete(delete_answer))
+        .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8000")
         .await
