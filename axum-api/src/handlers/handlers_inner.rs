@@ -23,7 +23,7 @@ pub(crate) async fn create_question(
     let question = questions_dao.create_question(question).await;
 
     match question {
-        Ok(question) => Ok(question), // return question
+        Ok(question) => Ok(question),
         Err(err) => {
             error!("Something went wrong: {:?}", err);
             Err(HandlerError::default_internal_error())
@@ -34,10 +34,10 @@ pub(crate) async fn create_question(
 pub async fn read_questions(
     questions_dao: &(dyn QuestionsDao + Sync + Send),
 ) -> Result<Vec<QuestionDetail>, HandlerError> {
-    let questions = questions_dao.get_questions().await; // get questions using `questions_dao`
+    let questions = questions_dao.get_questions().await;
 
     match questions {
-        Ok(questions) => Ok(questions), // return questions
+        Ok(questions) => Ok(questions),
         Err(err) => {
             error!("Something went wrong: {:?}", err);
             Err(HandlerError::default_internal_error())
@@ -54,7 +54,7 @@ pub async fn delete_question(
         .await;
 
     if result.is_err() {
-        return Err(HandlerError::default_internal_error()); // return a default internal error using the HandlerError type
+        return Err(HandlerError::default_internal_error());
     }
 
     Ok(())
@@ -64,7 +64,7 @@ pub async fn create_answer(
     answer: Answer,
     answers_dao: &(dyn AnswersDao + Send + Sync),
 ) -> Result<AnswerDetail, HandlerError> {
-    let answer = answers_dao.create_answer(answer).await; // create answer using `answers_dao`
+    let answer = answers_dao.create_answer(answer).await;
 
     match answer {
         Ok(answer) => Ok(answer),
