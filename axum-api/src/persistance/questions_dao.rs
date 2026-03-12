@@ -1,10 +1,8 @@
-use async_trait::async_trait;
-use axum::Json;
-use log::{error, info};
-use serde::de::Unexpected::Str;
-use sqlx::{PgPool, Row};
-
 use crate::models::{DBError, Question, QuestionDetail};
+use async_trait::async_trait;
+use log::{error, info};
+use sqlx::{PgPool, Row};
+use std::str::FromStr;
 
 #[async_trait]
 pub trait QuestionsDao {
@@ -54,20 +52,31 @@ impl QuestionsDao for QuestionsDaoImpl {
     }
 
     async fn delete_question(&self, question_uuid: &String) -> Result<(), DBError> {
-        // Use the `sqlx::types::Uuid::parse_str` method to parse `question_uuid` into a `Uuid` type.
-        // parse_str docs: https://docs.rs/sqlx/latest/sqlx/types/struct.Uuid.html#method.parse_str
-        //
-        // If `parse_str` returns an error, map the error to a `DBError::InvalidUUID` error
-        // and early return from this function.
-        let uuid = todo!();
+        let uuid = sqlx::types::Uuid::from_str(question_uuid).map_err(|_error| {
+            DBError::InvalidUUID(format!("Could not parse question UUID: {}", question_uuid))
+        });
 
-        // TODO: Make a database query to delete a question given the question uuid.
-        // Here is the SQL query:
-        // ```
-        // DELETE FROM questions WHERE question_uuid = $1
-        // ```
-        // If executing the query results in an error, map that error
-        // to a `DBError::Other` error and early return from this function.
+        if uuid.is_err() {
+            return Err(uuid.unwrap_err());
+        }
+
+        let query_result = sqlx::query("DELETE FROM questions WHERE question_uuid = $1")
+            .bind(uuid.as_ref().unwrap())
+            .execute(&self.db)
+            .await;
+
+        if query_result.is_err() {
+            return Err(DBError::Other(Box::from(query_result.unwrap_err())));
+        }
+
+        let query_result = sqlx::query("DELETE FROM answers WHERE question_uuid = $1")
+            .bind(uuid.as_ref().unwrap())
+            .execute(&self.db)
+            .await;
+
+        if query_result.is_err() {
+            return Err(DBError::Other(Box::from(query_result.unwrap_err())));
+        }
 
         Ok(())
     }
@@ -85,11 +94,24 @@ impl QuestionsDao for QuestionsDaoImpl {
             return Err(query_error);
         }
 
-        let questions = vec![];
+        let mut questions = vec![];
 
         if let Ok(results) = records {
             info!("********* Question Records *********");
-            info!("{:?}", results);
+            info!("{:#?}", results);
+
+            for record in results {
+                questions.push(QuestionDetail {
+                    question_uuid: record
+                        .get::<sqlx::types::Uuid, _>("question_uuid")
+                        .to_string(),
+                    title: record.get("title"),
+                    description: record.get("description"),
+                    created_at: record
+                        .get::<chrono::NaiveDateTime, _>("created_at")
+                        .to_string(),
+                });
+            }
         }
 
         Ok(questions)
