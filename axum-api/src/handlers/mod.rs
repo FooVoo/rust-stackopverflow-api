@@ -1,5 +1,8 @@
 mod handlers_inner;
 
+#[cfg(test)]
+mod tests;
+
 use crate::AppState;
 use crate::models::*;
 use axum::extract::State;
