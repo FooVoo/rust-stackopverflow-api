@@ -111,6 +111,10 @@ impl AnswersDao for AnswersDaoImpl {
 
         let mut records: Vec<AnswerDetail> = vec![];
 
+        if query_result.is_err() {
+            return Err(DBError::Other(Box::new(query_result.unwrap_err())));
+        }
+
         if let Ok(answers) = query_result {
             for record in answers {
                 records.push(AnswerDetail {
